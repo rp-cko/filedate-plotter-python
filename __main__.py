@@ -38,44 +38,78 @@ class GraphWindow(QtWidgets.QWidget):
         self.canv = FigureCanvas(self.fig)
         plt.style.use('seaborn-whitegrid')
         self.toolbar = NavigationToolbar(self.canv, self)
-        grid.addWidget(self.canv, 1,0,1,8)
-        grid.addWidget(self.toolbar, 0,0,1,8)
+        grid.addWidget(self.canv, 1,0,1,4)
+        grid.addWidget(self.toolbar, 0,0,1,4)
 
         # 3. Row: Reading Files
         btn_loadFiles = QtWidgets.QPushButton('Load Files', self)
         btn_loadFiles.resize(btn_loadFiles.sizeHint())
         btn_loadFiles.clicked.connect(self.load_files)
-        grid.addWidget(btn_loadFiles,2,0,1,4)
+        grid.addWidget(btn_loadFiles,2,0,1,1)
 
         self.lab_dispFilepath = QtWidgets.QLabel("No Files Selected", self)
         self.lab_dispFilepath.resize(self.lab_dispFilepath.sizeHint())
-        grid.addWidget(self.lab_dispFilepath,2,4,1,4)
+        grid.addWidget(self.lab_dispFilepath,2,1,1,3)
 
-        # 4. Row: Polynomial Regression
-        btn_polyFit = QtWidgets.QPushButton('Tell the Future', self)
-        btn_polyFit.resize(btn_polyFit.sizeHint())
-        btn_polyFit.clicked.connect(self.create_polyfit)
-        grid.addWidget(btn_polyFit,3,0,1,4)
+        subgrid_lvls = QtWidgets.QGridLayout()
 
-        lab_numFrames = QtWidgets.QLabel("Total Number of Frames:", self)
-        lab_numFrames.resize(lab_numFrames.sizeHint())
-        lab_numFrames.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        grid.addWidget(lab_numFrames,3,4,1,1)
+        chk_lvl1 = QtWidgets.QCheckBox("1", self)
+        chk_lvl1.resize(chk_lvl1.sizeHint())
+        subgrid_lvls.addWidget(chk_lvl1,0,0)
+
+        chk_lvl2 = QtWidgets.QCheckBox("2", self)
+        chk_lvl2.resize(chk_lvl2.sizeHint())
+        subgrid_lvls.addWidget(chk_lvl2,0,1)
+
+        chk_lvl3 = QtWidgets.QCheckBox("3", self)
+        chk_lvl3.resize(chk_lvl3.sizeHint())
+        subgrid_lvls.addWidget(chk_lvl3,0,2)
+
+        chk_lvl4 = QtWidgets.QCheckBox("4", self)
+        chk_lvl4.resize(chk_lvl4.sizeHint())
+        subgrid_lvls.addWidget(chk_lvl4,1,0)
+
+        chk_lvl5 = QtWidgets.QCheckBox("5", self)
+        chk_lvl5.resize(chk_lvl5.sizeHint())
+        subgrid_lvls.addWidget(chk_lvl5,1,1)
+
+        chk_lvl6 = QtWidgets.QCheckBox("6", self)
+        chk_lvl6.resize(chk_lvl6.sizeHint())
+        subgrid_lvls.addWidget(chk_lvl6,1,2)
+
+        grid.addLayout(subgrid_lvls,3,0,1,1)
+
+        subgrid_frames = QtWidgets.QGridLayout()
 
         spi_numFrames = QtWidgets.QSpinBox(self, minimum = 1, maximum = 1000000, value = 200)
         spi_numFrames.resize(spi_numFrames.sizeHint())
-        spi_numFrames.valueChanged.connect(self.update_framenumstotal)
-        grid.addWidget(spi_numFrames,3,5,1,1)
+        # spi_numFrames.valueChanged.connect(self.update_framenumstotal)
+        subgrid_frames.addWidget(spi_numFrames,0,0,1,1)
 
-        lab_polylevel = QtWidgets.QLabel("Polynomial Regression Level:", self)
-        lab_polylevel.resize(lab_numFrames.sizeHint())
-        lab_polylevel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        grid.addWidget(lab_polylevel,3,6,1,1)
+        spi_in = QtWidgets.QSpinBox(self, minimum = 0, maximum = 1000000, value = 0)
+        spi_in.resize(spi_in.sizeHint())
+        subgrid_frames.addWidget(spi_in, 1,0,1,1)
 
-        spi_polylevel = QtWidgets.QSpinBox(self, maximum = 10, value = 2)
-        spi_polylevel.resize(spi_polylevel.sizeHint())
-        spi_polylevel.valueChanged.connect(self.update_polylevel)
-        grid.addWidget(spi_polylevel,3,7,1,1)
+        spi_out = QtWidgets.QSpinBox(self, minimum = 0, maximum = 1000000, value = 200)
+        spi_out.resize(spi_out.sizeHint())
+        subgrid_frames.addWidget(spi_out, 2,0,1,1)
+
+        lab_numFrames = QtWidgets.QLabel("Total Number of Frames", self)
+        lab_numFrames.resize(lab_numFrames.sizeHint())
+        subgrid_frames.addWidget(lab_numFrames, 0,1,1,2)
+
+        lab_in = QtWidgets.QLabel("First Frame", self)
+        lab_in.resize(lab_in.sizeHint())
+        subgrid_frames.addWidget(lab_in, 1,1,1,2)
+
+        lab_out = QtWidgets.QLabel("Last Frame", self)
+        lab_out.resize(lab_out.sizeHint())
+        subgrid_frames.addWidget(lab_out, 2,1,1,2)
+
+        grid.addLayout(subgrid_frames,4,0,1,1)
+
+        lab_infobox = QtWidgets.QLabel("Info", self)
+        grid.addWidget(lab_infobox,2,1,2,2)
 
         self.show()
 
