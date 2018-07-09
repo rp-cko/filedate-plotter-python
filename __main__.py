@@ -110,8 +110,8 @@ class GraphWindow(QtWidgets.QWidget):
             self.modTimesUnix.append(timeUnix)
             self.modTimes.append(time)
 
-        #self.modTimesUnix.sort()
-        #self.modTimes.sort()
+        self.modTimesUnix.sort()
+        self.modTimes.sort()
 
     def create_polyfit(self):
         if len(self.frameNums) <= 0 or len(self.frameNums) != len(self.modTimesUnix):
