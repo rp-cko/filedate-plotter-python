@@ -20,6 +20,7 @@ class GraphWindow(QtWidgets.QWidget):
         self.frameNumsTotal = 200
         self.polyfits = {}
         self.timeFinished = None
+        self.degrees = {'Deg.: 1':1, 'Deg.: 2':2, 'Deg.: 3':3, 'Deg.: 4':4, 'Deg.: 5':5, 'Deg.: 6':6}
 
         self.initUI()
 
@@ -50,37 +51,17 @@ class GraphWindow(QtWidgets.QWidget):
         grid.addWidget(self.lab_dispFilepath,2,1,1,3)
 
         subgrid_lvls = QtWidgets.QGridLayout()
-
-        self.chk_lvl1 = QtWidgets.QCheckBox("1", self)
-        self.chk_lvl1.resize(self.chk_lvl1.sizeHint())
-        self.chk_lvl1.stateChanged.connect(self.update_deg1)
-        subgrid_lvls.addWidget(self.chk_lvl1,0,0)
-
-        self.chk_lvl2 = QtWidgets.QCheckBox("2", self)
-        self.chk_lvl2.resize(self.chk_lvl2.sizeHint())
-        self.chk_lvl2.stateChanged.connect(self.update_deg2)
-        subgrid_lvls.addWidget(self.chk_lvl2,0,1)
-
-        self.chk_lvl3 = QtWidgets.QCheckBox("3", self)
-        self.chk_lvl3.resize(self.chk_lvl3.sizeHint())
-        self.chk_lvl3.stateChanged.connect(self.update_deg3)
-        subgrid_lvls.addWidget(self.chk_lvl3,0,2)
-
-        self.chk_lvl4 = QtWidgets.QCheckBox("4", self)
-        self.chk_lvl4.resize(self.chk_lvl4.sizeHint())
-        self.chk_lvl4.stateChanged.connect(self.update_deg4)
-        subgrid_lvls.addWidget(self.chk_lvl4,1,0)
-
-        self.chk_lvl5 = QtWidgets.QCheckBox("5", self)
-        self.chk_lvl5.resize(self.chk_lvl5.sizeHint())
-        self.chk_lvl5.stateChanged.connect(self.update_deg5)
-        subgrid_lvls.addWidget(self.chk_lvl5,1,1)
-
-        self.chk_lvl6 = QtWidgets.QCheckBox("6", self)
-        self.chk_lvl6.resize(self.chk_lvl6.sizeHint())
-        self.chk_lvl6.stateChanged.connect(self.update_deg6)
-        subgrid_lvls.addWidget(self.chk_lvl6,1,2)
-
+        self.lvlBoxes = []
+        i=0
+        for label, content in self.degrees.items():
+            checkBox = QtWidgets.QCheckBox(label, self)
+            checkBox.resize(checkBox.sizeHint())
+            checkBox.stateChanged.connect(self.update_degs)
+            x = i%3
+            y = (i-x)/3
+            subgrid_lvls.addWidget(checkBox,y,x)
+            i+=1
+            self.lvlBoxes.append(checkBox)
         grid.addLayout(subgrid_lvls,3,0,1,1)
 
         subgrid_frames = QtWidgets.QGridLayout()
@@ -123,12 +104,7 @@ class GraphWindow(QtWidgets.QWidget):
             self.lab_dispFilepath.setText(str(filepaths[0]))
             self.calc_modtimes(filepaths)
             self.polyfits.clear()
-            self.chk_lvl1.setChecked(False)
-            self.chk_lvl2.setChecked(False)
-            self.chk_lvl3.setChecked(False)
-            self.chk_lvl4.setChecked(False)
-            self.chk_lvl5.setChecked(False)
-            self.chk_lvl6.setChecked(False)
+            for chkbx in self.lvlBoxes: chkbx.setChecked(False)
             self.update_plot()
         else:
             pass
@@ -197,60 +173,22 @@ class GraphWindow(QtWidgets.QWidget):
 
         self.canv.draw()
 
-    def update_deg1(self):
-        if self.chk_lvl1.isChecked():
-            self.create_polyfit(1)
-        else:
-            self.polyfits.pop(1, None)
-        self.update_plot()
-
-    def update_deg2(self):
-        if self.chk_lvl2.isChecked():
-            self.create_polyfit(2)
-        else:
-            self.polyfits.pop(2, None)
-        self.update_plot()
-
-    def update_deg3(self):
-        if self.chk_lvl3.isChecked():
-            self.create_polyfit(3)
-        else:
-            self.polyfits.pop(3, None)
-        self.update_plot()
-
-    def update_deg4(self):
-        if self.chk_lvl4.isChecked():
-            self.create_polyfit(4)
-        else:
-            self.polyfits.pop(4, None)
-        self.update_plot()
-
-    def update_deg5(self):
-        if self.chk_lvl5.isChecked():
-            self.create_polyfit(5)
-        else:
-            self.polyfits.pop(5, None)
-        self.update_plot()
-
-    def update_deg6(self):
-        if self.chk_lvl6.isChecked():
-            self.create_polyfit(6)
-        else:
-            self.polyfits.pop(6, None)
-        self.update_plot()
+    def update_degs(self):
+        chkbx = self.sender()
+        if isinstance(chkbx, QtWidgets.QCheckBox):
+            deg = self.degrees.get(chkbx.text())
+            if chkbx.isChecked():
+                self.create_polyfit(deg)
+            else:
+                self.polyfits.pop(deg, None)
+            self.update_plot()
 
     def update_framenumstotal(self, val):
         self.frameNumsTotal = val
         self.polyfits.clear()
-        degs = []
-        if self.chk_lvl1.isChecked(): degs.append(1)
-        if self.chk_lvl2.isChecked(): degs.append(2)
-        if self.chk_lvl3.isChecked(): degs.append(3)
-        if self.chk_lvl4.isChecked(): degs.append(4)
-        if self.chk_lvl5.isChecked(): degs.append(5)
-        if self.chk_lvl6.isChecked(): degs.append(6)
-        for deg in degs:
-            self.create_polyfit(deg)
+        for chkbx in self.lvlBoxes:
+            deg = self.degrees.get(chkbx.text())
+            if chkbx.isChecked(): self.create_polyfit(deg)
         self.update_plot()
 
     def center(self):
