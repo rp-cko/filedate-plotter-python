@@ -19,6 +19,8 @@ class GraphWindow(QtWidgets.QWidget):
         self.frameNums = []
         self.frameNumsTotal = 200
         self.polyfits = {}
+        self.polyfitIn = 0
+        self.polyfitOut = 200
         self.timeFinished = None
         self.degrees = {'Deg.: 1':1, 'Deg.: 2':2, 'Deg.: 3':3, 'Deg.: 4':4, 'Deg.: 5':5, 'Deg.: 6':6}
 
@@ -71,13 +73,15 @@ class GraphWindow(QtWidgets.QWidget):
         spi_numFrames.valueChanged.connect(self.update_framenumstotal)
         subgrid_frames.addWidget(spi_numFrames,0,0,1,1)
 
-        spi_in = QtWidgets.QSpinBox(self, minimum = 0, maximum = 1000000, value = 0)
-        spi_in.resize(spi_in.sizeHint())
-        subgrid_frames.addWidget(spi_in, 1,0,1,1)
+        self.spi_in = QtWidgets.QSpinBox(self, minimum = 0, maximum = 1000000, value = 0)
+        self.spi_in.resize(self.spi_in.sizeHint())
+        self.spi_in.valueChanged.connect(self.update_polyIn)
+        subgrid_frames.addWidget(self.spi_in, 1,0,1,1)
 
-        spi_out = QtWidgets.QSpinBox(self, minimum = 0, maximum = 1000000, value = 200)
-        spi_out.resize(spi_out.sizeHint())
-        subgrid_frames.addWidget(spi_out, 2,0,1,1)
+        self.spi_out = QtWidgets.QSpinBox(self, minimum = 0, maximum = 1000000, value = 200)
+        self.spi_out.resize(self.spi_out.sizeHint())
+        self.spi_out.valueChanged.connect(self.update_polyOut)
+        subgrid_frames.addWidget(self.spi_out, 2,0,1,1)
 
         lab_numFrames = QtWidgets.QLabel("Total Number of Frames", self)
         lab_numFrames.resize(lab_numFrames.sizeHint())
@@ -134,12 +138,14 @@ class GraphWindow(QtWidgets.QWidget):
         self.modTimes.sort()
 
     def create_polyfit(self, deg):
-        if len(self.frameNums) <= 0 or len(self.frameNums) != len(self.modTimesUnix):
+        frameNumsClamped = self.frameNums[self.polyfitIn:self.polyfitOut]
+        modTimesUnixClamped = self.modTimesUnix[self.polyfitIn:self.polyfitOut]
+        if len(frameNumsClamped) <= 0 or len(frameNumsClamped) != len(modTimesUnixClamped):
             print("Not computable")
             return None
 
-        x = np.array(self.frameNums)
-        y = np.array(self.modTimesUnix)
+        x = np.array(frameNumsClamped)
+        y = np.array(modTimesUnixClamped)
         with warnings.catch_warnings():
             warnings.filterwarnings('error')
             try:
@@ -169,6 +175,14 @@ class GraphWindow(QtWidgets.QWidget):
         if len(self.modTimes) > 0 and len(self.modTimes)==len(self.frameNums):
             ax.plot(self.frameNums, self.modTimes, '+', label='data')
 
+        lims = ax.get_xlim()
+        x1 = np.clip(self.polyfitIn, lims[0], lims[1])
+        x2 = np.clip(self.polyfitOut, lims[0], lims[1])
+        self.spi_in.setRange(lims[0], lims[1])
+        self.spi_out.setRange(lims[0], lims[1])
+        ax.axvline(x1, label = 'In', linestyle = 'dashed')
+        ax.axvline(x2, label = 'Out', linestyle = 'dotted')
+
         ax.legend(frameon=True)
 
         self.canv.draw()
@@ -182,6 +196,14 @@ class GraphWindow(QtWidgets.QWidget):
             else:
                 self.polyfits.pop(deg, None)
             self.update_plot()
+
+    def update_polyIn(self, val):
+        self.polyfitIn = val
+        self.update_plot()
+
+    def update_polyOut(self, val):
+        self.polyfitOut = val
+        self.update_plot()
 
     def update_framenumstotal(self, val):
         self.frameNumsTotal = val
