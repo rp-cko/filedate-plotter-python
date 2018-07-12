@@ -1,4 +1,6 @@
-import sys, os, warnings
+import sys
+import os
+import warnings
 from datetime import datetime
 
 from PyQt5 import QtWidgets, QtGui, QtCore
@@ -14,26 +16,39 @@ class GraphWindow(QtWidgets.QWidget):
         super(GraphWindow, self).__init__()
 
         #Setup Globals
-        self.modTimesUnix = []
-        self.modTimes = []
-        self.frameNums = []
-        self.frameNumsTotal = 200
-        self.frameNumsPolyfit = []
-        self.polyfits = {}
-        self.polyfitIn = 0
-        self.polyfitOut = 200
-        self.timeFinished = None
-        self.degrees = {'Deg.: 1':1, 'Deg.: 2':2, 'Deg.: 3':3, 'Deg.: 4':4, 'Deg.: 5':5, 'Deg.: 6':6}
+        self.file_dates_unix = []
+        self.file_dates = []
+        self.file_frames = []
+        self.frames_total = 200
+        self.polyfit_frames = []
+        self.polyfit_dates = {}
+        self.polyfit_in = 0
+        self.polyfit_out = 200
+        self.DEGREES = {'Deg.: 1':1,
+                'Deg.: 2':2,
+                'Deg.: 3':3,
+                'Deg.: 4':4,
+                'Deg.: 5':5,
+                'Deg.: 6':6}
 
         self.initUI()
 
     def initUI(self):
+        """Initialize all UI elements
+
+        For the main graph only the navigation toolbar, the figure and its
+        canvas are initialized here.
+        For Axes, Plots, Legends, etc. see update_plot()
+        """
+
+        # Window and grid layout
         self.setGeometry(600,300,1000,600)
-        self.center()
+        self.center_window()
         self.setWindowTitle('Date Modified Plotting')
 
         grid = QtWidgets.QGridLayout()
         self.setLayout(grid)
+
 
         # 1.-2. Row: Plotting
         self.fig = plt.figure(figsize=(15,5))
@@ -42,6 +57,7 @@ class GraphWindow(QtWidgets.QWidget):
         self.toolbar = NavigationToolbar(self.canv, self)
         grid.addWidget(self.canv, 1,0,1,4)
         grid.addWidget(self.toolbar, 0,0,1,4)
+
 
         # 3. Row: Reading Files
         btn_loadFiles = QtWidgets.QPushButton('Load Files', self)
@@ -53,10 +69,12 @@ class GraphWindow(QtWidgets.QWidget):
         self.lab_dispFilepath.resize(self.lab_dispFilepath.sizeHint())
         grid.addWidget(self.lab_dispFilepath,2,1,1,3)
 
+
+        # 4. Row left: Polyfit degree checkboxes
         subgrid_lvls = QtWidgets.QGridLayout()
         self.lvlBoxes = []
         i=0
-        for label, content in self.degrees.items():
+        for label, content in self.DEGREES.items():
             checkBox = QtWidgets.QCheckBox(label, self)
             checkBox.resize(checkBox.sizeHint())
             checkBox.stateChanged.connect(self.update_degs)
@@ -67,21 +85,29 @@ class GraphWindow(QtWidgets.QWidget):
             self.lvlBoxes.append(checkBox)
         grid.addLayout(subgrid_lvls,3,0,1,1)
 
+
+        # 5. Row left: In point, out point and number of frames for polyfit
         subgrid_frames = QtWidgets.QGridLayout()
 
-        spi_numFrames = QtWidgets.QSpinBox(self, minimum = 1, maximum = 1000000, value = 200)
+        spi_numFrames = QtWidgets.QSpinBox(self, minimum=1,
+                maximum=1000000,
+                value=200)
         spi_numFrames.resize(spi_numFrames.sizeHint())
-        spi_numFrames.valueChanged.connect(self.update_framenumstotal)
+        spi_numFrames.valueChanged.connect(self.update_poly_total)
         subgrid_frames.addWidget(spi_numFrames,0,0,1,1)
 
-        self.spi_in = QtWidgets.QSpinBox(self, minimum = 0, maximum = 1000000, value = 0)
+        self.spi_in = QtWidgets.QSpinBox(self, minimum=0,
+                maximum=1000000,
+                value=0)
         self.spi_in.resize(self.spi_in.sizeHint())
-        self.spi_in.valueChanged.connect(self.update_polyIn)
+        self.spi_in.valueChanged.connect(self.update_poly_in)
         subgrid_frames.addWidget(self.spi_in, 1,0,1,1)
 
-        self.spi_out = QtWidgets.QSpinBox(self, minimum = 0, maximum = 1000000, value = 200)
+        self.spi_out = QtWidgets.QSpinBox(self, minimum=0,
+                maximum=1000000,
+                value=200)
         self.spi_out.resize(self.spi_out.sizeHint())
-        self.spi_out.valueChanged.connect(self.update_polyOut)
+        self.spi_out.valueChanged.connect(self.update_poly_out)
         subgrid_frames.addWidget(self.spi_out, 2,0,1,1)
 
         lab_numFrames = QtWidgets.QLabel("Total Number of Frames", self)
@@ -98,54 +124,74 @@ class GraphWindow(QtWidgets.QWidget):
 
         grid.addLayout(subgrid_frames,4,0,1,1)
 
-        lab_infobox = QtWidgets.QLabel("Info", self)
-        grid.addWidget(lab_infobox,2,1,2,2)
+
+        # 4.-5. Row right: Infobox
+        self.lab_infobox = QtWidgets.QLabel("Info", self)
+        grid.addWidget(self.lab_infobox,2,1,2,2)
 
         self.show()
 
     def load_files(self):
+        """Load Files and create new graph
+
+        Opens filebrowser, resets all polyfits and their checkboxes,
+        draws new plot
+        """
+
         filepaths = self.get_filepaths()
         if filepaths != None:
             self.lab_dispFilepath.setText(str(filepaths[0]))
             self.calc_modtimes(filepaths)
-            self.polyfits.clear()
+            self.polyfit_dates.clear()
             for chkbx in self.lvlBoxes: chkbx.setChecked(False)
-            self.update_polyFits()
+            self.update_polyfits()
             self.update_plot()
         else:
             pass
 
     def get_filepaths(self):
+        """Open filebrowser and return selected filepaths as list os strings"""
+
         options = QtWidgets.QFileDialog.Options()
         options |= QtWidgets.QFileDialog.DontUseNativeDialog
-        files, _ = QtWidgets.QFileDialog.getOpenFileNames(self,"QFileDialog.getOpenFileNames()", "","All Files (*);;Python Files (*.py)", options=options)
+        files, _ = QtWidgets.QFileDialog.getOpenFileNames(self,
+                "QFileDialog.getOpenFileNames()",
+                "",
+                "All Files (*);;Python Files (*.py)",
+                options=options)
         if files:
             return(files)
         else:
             return(None)
 
     def calc_modtimes(self, filepaths):
-        self.frameNums = range(len(filepaths))
-        self.modTimesUnix = []
-        self.modTimes = []
+        """Creates list of last modified dates from list of filepaths"""
+
+        self.file_frames = range(len(filepaths))
+        self.file_dates_unix = []
+        self.file_dates = []
 
         for filepath in filepaths:
             filepath.replace('/', '\\')
             timeUnix = os.path.getmtime(filepath)
             time = datetime.fromtimestamp(timeUnix)
-            self.modTimesUnix.append(timeUnix)
-            self.modTimes.append(time)
+            self.file_dates_unix.append(timeUnix)
+            self.file_dates.append(time)
 
-        self.modTimesUnix.sort()
-        self.modTimes.sort()
+        self.file_dates_unix.sort()
+        self.file_dates.sort()
 
     def create_polyfit(self, deg):
-        frameNumsClamped = self.frameNums[self.polyfitIn:self.polyfitOut]
-        modTimesUnixClamped = self.modTimesUnix[self.polyfitIn:self.polyfitOut]
+        """Create polyfit dates for plotting"""
+
+        #Set range of dates and frames to be analyzed
+        frameNumsClamped = self.file_frames[self.polyfit_in:self.polyfit_out]
+        modTimesUnixClamped = self.file_dates_unix[self.polyfit_in:self.polyfit_out]
         if len(frameNumsClamped) <= 0 or len(frameNumsClamped) != len(modTimesUnixClamped):
             print("Not computable")
             return None
 
+        #Compute polyfit function
         x = np.array(frameNumsClamped)
         y = np.array(modTimesUnixClamped)
         with warnings.catch_warnings():
@@ -156,75 +202,101 @@ class GraphWindow(QtWidgets.QWidget):
                 print("Not enough data")
                 return None
 
-        polyfitTimesUnix = np.polyval(p1,self.frameNumsPolyfit)
+        #Compute dates from polyfit function
+        polyfitTimesUnix = np.polyval(p1,self.polyfit_frames)
         polyfitTimes = []
         for timeU in polyfitTimesUnix:
             polyfitTimes.append(datetime.fromtimestamp(timeU))
-        self.polyfits.update({deg: polyfitTimes})
-        #self.timeFinished = datetime.fromtimestamp(int(polyfitTimesUnix[self.frameNumsTotal-1]))
+
+        #Safe to global var
+        self.polyfit_dates.update({deg: polyfitTimes})
 
     def update_plot(self):
+        """Creates new axes containing selected info
+        and sets ranges on polyfit in and out point
+        based on axes limits
+        """
+
+        # Basic axes settings
         self.fig.clf()
         ax = self.fig.add_subplot(111, label='babo')
         ax.set(xlabel='Frame', ylabel='Creation Date', title='Render Progress')
 
-        if len(self.polyfits) > 0:
-            for deg, timeList in self.polyfits.items():
-                if len(timeList) > 0 and len(timeList) == len(self.frameNumsPolyfit):
-                    ax.plot(self.frameNumsPolyfit,timeList, label="Deg. "+str(deg))
-                    #ax.text(self.frameNumsTotal-1, self.timeFinished, "Finished approx.: " + str(self.timeFinished), fontsize=10, horizontalalignment="right")
+        # Plots all available polyfit dates
+        if len(self.polyfit_dates) > 0:
+            for deg, timeList in self.polyfit_dates.items():
+                if len(timeList) > 0 and len(timeList) == len(self.polyfit_frames):
+                    ax.plot(self.polyfit_frames,timeList, label="Deg. "+str(deg))
 
-        if len(self.modTimes) > 0 and len(self.modTimes)==len(self.frameNums):
-            ax.plot(self.frameNums, self.modTimes, '+', label='data')
+        # Plots last modified dates of selected files
+        if len(self.file_dates) > 0 and len(self.file_dates)==len(self.file_frames):
+            ax.plot(self.file_frames, self.file_dates, '+', label='data')
 
+        # Limit in and out point of polyfit and draw vlines for both
         lims = ax.get_xlim()
-        x1 = np.clip(self.polyfitIn, lims[0], lims[1])
-        x2 = np.clip(self.polyfitOut, lims[0], lims[1])
-        self.spi_in.setRange(lims[0], self.polyfitOut)
-        self.spi_out.setRange(self.polyfitIn, lims[1])
-        ax.axvline(x1, label = 'In', linestyle = 'dashed')
-        ax.axvline(x2, label = 'Out', linestyle = 'dotted')
+        x1 = np.clip(self.polyfit_in, lims[0], lims[1])
+        x2 = np.clip(self.polyfit_out, lims[0], lims[1])
+        self.spi_in.setRange(lims[0], self.polyfit_out)
+        self.spi_out.setRange(self.polyfit_in, lims[1])
+        ax.axvline(x1, label='In', linestyle='dashed')
+        ax.axvline(x2, label='Out', linestyle='dotted')
 
+        # Create legend
         ax.legend(frameon=True)
 
         self.canv.draw()
 
     def update_degs(self):
+        """Update polyfit dictionary and plot if checkbox value changes"""
+
         chkbx = self.sender()
         if isinstance(chkbx, QtWidgets.QCheckBox):
-            deg = self.degrees.get(chkbx.text())
+            deg = self.DEGREES.get(chkbx.text())
             if chkbx.isChecked():
                 self.create_polyfit(deg)
             else:
-                self.polyfits.pop(deg, None)
+                self.polyfit_dates.pop(deg, None)
             self.update_plot()
 
-    def update_polyIn(self, val):
-        self.polyfitIn = val
-        self.update_polyFits()
+    def update_poly_in(self, val):
+        """Update polyfits for new in point"""
+
+        self.polyfit_in = val
+        self.update_polyfits()
         self.update_plot()
 
-    def update_polyOut(self, val):
-        self.polyfitOut = val
-        self.update_polyFits()
+    def update_poly_out(self, val):
+        """Update polyfits for new out point"""
+
+        self.polyfit_out = val
+        self.update_polyfits()
         self.update_plot()
 
-    def update_framenumstotal(self, val):
-        self.frameNumsTotal = val
-        self.update_polyFits()
+    def update_poly_total(self, val):
+        """Update polyfits for new total frame num"""
+
+        self.frames_total = val
+        self.update_polyfits()
         self.update_plot()
 
-    def update_polyFits(self):
-        self.polyfits.clear()
+    def update_polyfits(self):
+        """Update polyfits for new date range"""
 
-        frames = range(self.frameNumsTotal)
-        self.frameNumsPolyfit = frames[self.polyfitIn:self.frameNumsTotal]
+        # Clear all previous polyfit data
+        self.polyfit_dates.clear()
 
+        # Update polyfit frame range
+        frames = range(self.frames_total)
+        self.polyfit_frames = frames[self.polyfit_in:self.frames_total]
+
+        # Create polyfits for all checked checkboxes
         for chkbx in self.lvlBoxes:
-            deg = self.degrees.get(chkbx.text())
+            deg = self.DEGREES.get(chkbx.text())
             if chkbx.isChecked(): self.create_polyfit(deg)
 
-    def center(self):
+    def center_window(self):
+        """Move window to screen center"""
+
         qr = self.frameGeometry()
         cp = QtWidgets.QDesktopWidget().availableGeometry().center()
         qr.moveCenter(cp)
