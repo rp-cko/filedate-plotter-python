@@ -18,6 +18,7 @@ class GraphWindow(QtWidgets.QWidget):
         self.modTimes = []
         self.frameNums = []
         self.frameNumsTotal = 200
+        self.frameNumsPolyfit = []
         self.polyfits = {}
         self.polyfitIn = 0
         self.polyfitOut = 200
@@ -109,6 +110,7 @@ class GraphWindow(QtWidgets.QWidget):
             self.calc_modtimes(filepaths)
             self.polyfits.clear()
             for chkbx in self.lvlBoxes: chkbx.setChecked(False)
+            self.update_polyFits()
             self.update_plot()
         else:
             pass
@@ -154,7 +156,7 @@ class GraphWindow(QtWidgets.QWidget):
                 print("Not enough data")
                 return None
 
-        polyfitTimesUnix = np.polyval(p1,range(self.frameNumsTotal))
+        polyfitTimesUnix = np.polyval(p1,self.frameNumsPolyfit)
         polyfitTimes = []
         for timeU in polyfitTimesUnix:
             polyfitTimes.append(datetime.fromtimestamp(timeU))
@@ -168,8 +170,8 @@ class GraphWindow(QtWidgets.QWidget):
 
         if len(self.polyfits) > 0:
             for deg, timeList in self.polyfits.items():
-                if len(timeList) > 0:
-                    ax.plot(range(len(timeList)),timeList, label="Deg.:"+str(deg))
+                if len(timeList) > 0 and len(timeList) == len(self.frameNumsPolyfit):
+                    ax.plot(self.frameNumsPolyfit,timeList, label="Deg. "+str(deg))
                     #ax.text(self.frameNumsTotal-1, self.timeFinished, "Finished approx.: " + str(self.timeFinished), fontsize=10, horizontalalignment="right")
 
         if len(self.modTimes) > 0 and len(self.modTimes)==len(self.frameNums):
@@ -178,8 +180,8 @@ class GraphWindow(QtWidgets.QWidget):
         lims = ax.get_xlim()
         x1 = np.clip(self.polyfitIn, lims[0], lims[1])
         x2 = np.clip(self.polyfitOut, lims[0], lims[1])
-        self.spi_in.setRange(lims[0], lims[1])
-        self.spi_out.setRange(lims[0], lims[1])
+        self.spi_in.setRange(lims[0], self.polyfitOut)
+        self.spi_out.setRange(self.polyfitIn, lims[1])
         ax.axvline(x1, label = 'In', linestyle = 'dashed')
         ax.axvline(x2, label = 'Out', linestyle = 'dotted')
 
@@ -199,19 +201,28 @@ class GraphWindow(QtWidgets.QWidget):
 
     def update_polyIn(self, val):
         self.polyfitIn = val
+        self.update_polyFits()
         self.update_plot()
 
     def update_polyOut(self, val):
         self.polyfitOut = val
+        self.update_polyFits()
         self.update_plot()
 
     def update_framenumstotal(self, val):
         self.frameNumsTotal = val
+        self.update_polyFits()
+        self.update_plot()
+
+    def update_polyFits(self):
         self.polyfits.clear()
+
+        frames = range(self.frameNumsTotal)
+        self.frameNumsPolyfit = frames[self.polyfitIn:self.frameNumsTotal]
+
         for chkbx in self.lvlBoxes:
             deg = self.degrees.get(chkbx.text())
             if chkbx.isChecked(): self.create_polyfit(deg)
-        self.update_plot()
 
     def center(self):
         qr = self.frameGeometry()
