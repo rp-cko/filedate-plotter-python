@@ -71,8 +71,10 @@ class GraphWindow(QtWidgets.QWidget):
 
 
         # 4. Row left: Polyfit degree checkboxes
-        subgrid_lvls = QtWidgets.QGridLayout()
-        self.lvlBoxes = []
+        degs_groupbox = QtWidgets.QGroupBox('Polyfit Degs')
+        degs_subgrid = QtWidgets.QGridLayout()
+        degs_groupbox.setLayout(degs_subgrid)
+        self.deg_boxes = []
         i=0
         for label, content in self.DEGREES.items():
             checkBox = QtWidgets.QCheckBox(label, self)
@@ -80,54 +82,62 @@ class GraphWindow(QtWidgets.QWidget):
             checkBox.stateChanged.connect(self.update_degs)
             x = i%3
             y = (i-x)/3
-            subgrid_lvls.addWidget(checkBox,y,x)
+            degs_subgrid.addWidget(checkBox,y,x)
             i+=1
-            self.lvlBoxes.append(checkBox)
-        grid.addLayout(subgrid_lvls,3,0,1,1)
+            self.deg_boxes.append(checkBox)
+        #grid.addLayout(degs_subgrid,3,0,1,1)
+        grid.addWidget(degs_groupbox,3,0,1,1)
 
 
         # 5. Row left: In point, out point and number of frames for polyfit
-        subgrid_frames = QtWidgets.QGridLayout()
+        frames_groupbox = QtWidgets.QGroupBox('Polyfit Frames')
+        frames_subgrid = QtWidgets.QGridLayout()
+        frames_groupbox.setLayout(frames_subgrid)
 
         spi_numFrames = QtWidgets.QSpinBox(self, minimum=1,
                 maximum=1000000,
                 value=200)
         spi_numFrames.resize(spi_numFrames.sizeHint())
         spi_numFrames.valueChanged.connect(self.update_poly_total)
-        subgrid_frames.addWidget(spi_numFrames,0,0,1,1)
+        frames_subgrid.addWidget(spi_numFrames,0,0,1,1)
 
         self.spi_in = QtWidgets.QSpinBox(self, minimum=0,
                 maximum=1000000,
                 value=0)
         self.spi_in.resize(self.spi_in.sizeHint())
         self.spi_in.valueChanged.connect(self.update_poly_in)
-        subgrid_frames.addWidget(self.spi_in, 1,0,1,1)
+        frames_subgrid.addWidget(self.spi_in, 1,0,1,1)
 
         self.spi_out = QtWidgets.QSpinBox(self, minimum=0,
                 maximum=1000000,
                 value=200)
         self.spi_out.resize(self.spi_out.sizeHint())
         self.spi_out.valueChanged.connect(self.update_poly_out)
-        subgrid_frames.addWidget(self.spi_out, 2,0,1,1)
+        frames_subgrid.addWidget(self.spi_out, 2,0,1,1)
 
         lab_numFrames = QtWidgets.QLabel("Total Number of Frames", self)
         lab_numFrames.resize(lab_numFrames.sizeHint())
-        subgrid_frames.addWidget(lab_numFrames, 0,1,1,2)
+        frames_subgrid.addWidget(lab_numFrames, 0,1,1,2)
 
         lab_in = QtWidgets.QLabel("First Frame", self)
         lab_in.resize(lab_in.sizeHint())
-        subgrid_frames.addWidget(lab_in, 1,1,1,2)
+        frames_subgrid.addWidget(lab_in, 1,1,1,2)
 
         lab_out = QtWidgets.QLabel("Last Frame", self)
         lab_out.resize(lab_out.sizeHint())
-        subgrid_frames.addWidget(lab_out, 2,1,1,2)
+        frames_subgrid.addWidget(lab_out, 2,1,1,2)
 
-        grid.addLayout(subgrid_frames,4,0,1,1)
+        #grid.addLayout(frames_subgrid,4,0,1,1)
+        grid.addWidget(frames_groupbox,4,0,1,1)
 
 
         # 4.-5. Row right: Infobox
+        info_groupbox = QtWidgets.QGroupBox('Info')
+        info_layout = QtWidgets.QVBoxLayout()
+        info_groupbox.setLayout(info_layout)
         self.lab_infobox = QtWidgets.QLabel("Info", self)
-        grid.addWidget(self.lab_infobox,2,1,2,2)
+        info_layout.addWidget(self.lab_infobox)
+        grid.addWidget(info_groupbox,3,1,2,3)
 
         self.show()
 
@@ -143,7 +153,7 @@ class GraphWindow(QtWidgets.QWidget):
             self.lab_dispFilepath.setText(str(filepaths[0]))
             self.calc_modtimes(filepaths)
             self.polyfit_dates.clear()
-            for chkbx in self.lvlBoxes: chkbx.setChecked(False)
+            for chkbx in self.deg_boxes: chkbx.setChecked(False)
             self.update_polyfits()
             self.update_plot()
         else:
@@ -290,7 +300,7 @@ class GraphWindow(QtWidgets.QWidget):
         self.polyfit_frames = frames[self.polyfit_in:self.frames_total]
 
         # Create polyfits for all checked checkboxes
-        for chkbx in self.lvlBoxes:
+        for chkbx in self.deg_boxes:
             deg = self.DEGREES.get(chkbx.text())
             if chkbx.isChecked(): self.create_polyfit(deg)
 
