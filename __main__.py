@@ -65,7 +65,8 @@ class GraphWindow(QtWidgets.QWidget):
         btn_loadFiles.clicked.connect(self.load_files)
         grid.addWidget(btn_loadFiles,2,0,1,1)
 
-        self.lab_dispFilepath = QtWidgets.QLabel("No Files Selected", self)
+        self.lab_dispFilepath = QtWidgets.QLineEdit(self)
+        self.lab_dispFilepath.setText("No Files Selected")
         self.lab_dispFilepath.resize(self.lab_dispFilepath.sizeHint())
         grid.addWidget(self.lab_dispFilepath,2,1,1,1)
 
@@ -132,12 +133,12 @@ class GraphWindow(QtWidgets.QWidget):
 
 
         # 4.-5. Row right: Infobox
-        info_groupbox = QtWidgets.QGroupBox('Info')
-        info_layout = QtWidgets.QVBoxLayout()
-        info_groupbox.setLayout(info_layout)
-        self.lab_infobox = QtWidgets.QLabel("Info", self)
-        info_layout.addWidget(self.lab_infobox)
-        grid.addWidget(info_groupbox,3,1,2,1)
+        self.lab_infobox = QtWidgets.QPlainTextEdit()
+        self.lab_infobox.resize(self.lab_infobox.sizeHint())
+        self.lab_infobox.insertPlainText("No Info available\n")
+        self.lab_infobox.clear()
+        self.lab_infobox.insertPlainText("Absolutely No Info available\n")
+        grid.addWidget(self.lab_infobox,3,1,2,1)
 
         grid.setRowStretch(1,100)
         grid.setColumnStretch(1,100)
@@ -259,6 +260,10 @@ class GraphWindow(QtWidgets.QWidget):
 
         self.canv.draw()
 
+    def update_info(self):
+        self.lab_infobox.clear()
+        self.lab_infobox.insertPlainText("Finished approx " + str(42) + "\n")
+
     def update_degs(self):
         """Update polyfit dictionary and plot if checkbox value changes"""
 
@@ -277,6 +282,7 @@ class GraphWindow(QtWidgets.QWidget):
         self.polyfit_in = val
         self.update_polyfits()
         self.update_plot()
+        self.update_info()
 
     def update_poly_out(self, val):
         """Update polyfits for new out point"""
@@ -284,6 +290,7 @@ class GraphWindow(QtWidgets.QWidget):
         self.polyfit_out = val
         self.update_polyfits()
         self.update_plot()
+        self.update_info()
 
     def update_poly_total(self, val):
         """Update polyfits for new total frame num"""
@@ -291,6 +298,7 @@ class GraphWindow(QtWidgets.QWidget):
         self.frames_total = val
         self.update_polyfits()
         self.update_plot()
+        self.update_info()
 
     def update_polyfits(self):
         """Update polyfits for new date range"""
