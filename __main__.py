@@ -51,12 +51,12 @@ class GraphWindow(QtWidgets.QWidget):
 
 
         # 1.-2. Row: Plotting
-        self.fig = plt.figure(figsize=(15,5))
+        self.fig = plt.figure() #figsize=(15,5)
         self.canv = FigureCanvas(self.fig)
         plt.style.use('seaborn-whitegrid')
         self.toolbar = NavigationToolbar(self.canv, self)
-        grid.addWidget(self.canv, 1,0,1,4)
-        grid.addWidget(self.toolbar, 0,0,1,4)
+        grid.addWidget(self.canv, 1,0,1,2)
+        grid.addWidget(self.toolbar, 0,0,1,2)
 
 
         # 3. Row: Reading Files
@@ -67,7 +67,7 @@ class GraphWindow(QtWidgets.QWidget):
 
         self.lab_dispFilepath = QtWidgets.QLabel("No Files Selected", self)
         self.lab_dispFilepath.resize(self.lab_dispFilepath.sizeHint())
-        grid.addWidget(self.lab_dispFilepath,2,1,1,3)
+        grid.addWidget(self.lab_dispFilepath,2,1,1,1)
 
 
         # 4. Row left: Polyfit degree checkboxes
@@ -137,7 +137,10 @@ class GraphWindow(QtWidgets.QWidget):
         info_groupbox.setLayout(info_layout)
         self.lab_infobox = QtWidgets.QLabel("Info", self)
         info_layout.addWidget(self.lab_infobox)
-        grid.addWidget(info_groupbox,3,1,2,3)
+        grid.addWidget(info_groupbox,3,1,2,1)
+
+        grid.setRowStretch(1,100)
+        grid.setColumnStretch(1,100)
 
         self.show()
 
