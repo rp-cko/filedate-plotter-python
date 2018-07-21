@@ -1,7 +1,7 @@
 import sys
 import os
 import warnings
-from datetime import datetime
+from datetime import datetime, time
 
 from PyQt5 import QtWidgets, QtGui, QtCore
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
@@ -24,6 +24,7 @@ class GraphWindow(QtWidgets.QWidget):
         self.polyfit_dates = {}
         self.polyfit_in = 0
         self.polyfit_out = 200
+        self.info_dic = {}
         self.DEGREES = {'Deg.: 1':1,
                 'Deg.: 2':2,
                 'Deg.: 3':3,
@@ -51,12 +52,12 @@ class GraphWindow(QtWidgets.QWidget):
 
 
         # 1.-2. Row: Plotting
-        self.fig = plt.figure(figsize=(15,5))
+        self.fig = plt.figure() #figsize=(15,5)
         self.canv = FigureCanvas(self.fig)
         plt.style.use('seaborn-whitegrid')
         self.toolbar = NavigationToolbar(self.canv, self)
-        grid.addWidget(self.canv, 1,0,1,4)
-        grid.addWidget(self.toolbar, 0,0,1,4)
+        grid.addWidget(self.canv, 1,0,1,2)
+        grid.addWidget(self.toolbar, 0,0,1,2)
 
 
         # 3. Row: Reading Files
@@ -65,9 +66,10 @@ class GraphWindow(QtWidgets.QWidget):
         btn_loadFiles.clicked.connect(self.load_files)
         grid.addWidget(btn_loadFiles,2,0,1,1)
 
-        self.lab_dispFilepath = QtWidgets.QLabel("No Files Selected", self)
+        self.lab_dispFilepath = QtWidgets.QLineEdit(self)
+        self.lab_dispFilepath.setText("No Files Selected")
         self.lab_dispFilepath.resize(self.lab_dispFilepath.sizeHint())
-        grid.addWidget(self.lab_dispFilepath,2,1,1,3)
+        grid.addWidget(self.lab_dispFilepath,2,1,1,1)
 
 
         # 4. Row left: Polyfit degree checkboxes
@@ -132,12 +134,15 @@ class GraphWindow(QtWidgets.QWidget):
 
 
         # 4.-5. Row right: Infobox
-        info_groupbox = QtWidgets.QGroupBox('Info')
-        info_layout = QtWidgets.QVBoxLayout()
-        info_groupbox.setLayout(info_layout)
-        self.lab_infobox = QtWidgets.QLabel("Info", self)
-        info_layout.addWidget(self.lab_infobox)
-        grid.addWidget(info_groupbox,3,1,2,3)
+        self.lab_infobox = QtWidgets.QPlainTextEdit()
+        self.lab_infobox.resize(self.lab_infobox.sizeHint())
+        self.lab_infobox.insertPlainText("No Info available\n")
+        self.lab_infobox.clear()
+        self.lab_infobox.insertPlainText("Absolutely No Info available\n")
+        grid.addWidget(self.lab_infobox,3,1,2,1)
+
+        grid.setRowStretch(1,100)
+        grid.setColumnStretch(1,100)
 
         self.show()
 
@@ -150,17 +155,26 @@ class GraphWindow(QtWidgets.QWidget):
 
         filepaths = self.get_filepaths()
         if filepaths != None:
-            self.lab_dispFilepath.setText(str(filepaths[0]))
             self.calc_modtimes(filepaths)
+
             self.polyfit_dates.clear()
             for chkbx in self.deg_boxes: chkbx.setChecked(False)
             self.update_polyfits()
+            self.polyfit_in = 0
+            self.polyfit_out = len(filepaths)
+
+            self.lab_dispFilepath.setText(str(filepaths[0]))
+            self.info_dic.clear()
+            self.info_add_timespent()
+            self.info_add_meanframetime()
+
+            self.update_info()
             self.update_plot()
         else:
             pass
 
     def get_filepaths(self):
-        """Open filebrowser and return selected filepaths as list os strings"""
+        """Open filebrowser and return selected filepaths as list of strings"""
 
         options = QtWidgets.QFileDialog.Options()
         options |= QtWidgets.QFileDialog.DontUseNativeDialog
@@ -246,7 +260,7 @@ class GraphWindow(QtWidgets.QWidget):
         lims = ax.get_xlim()
         x1 = np.clip(self.polyfit_in, lims[0], lims[1])
         x2 = np.clip(self.polyfit_out, lims[0], lims[1])
-        self.spi_in.setRange(lims[0], self.polyfit_out)
+        self.spi_in.setRange(0, self.polyfit_out)
         self.spi_out.setRange(self.polyfit_in, lims[1])
         ax.axvline(x1, label='In', linestyle='dashed')
         ax.axvline(x2, label='Out', linestyle='dotted')
@@ -255,6 +269,25 @@ class GraphWindow(QtWidgets.QWidget):
         ax.legend(frameon=True)
 
         self.canv.draw()
+
+    def update_info(self):
+        self.lab_infobox.clear()
+        for label, val in self.info_dic.items():
+            self.lab_infobox.insertPlainText(label+": "+val+"\n")
+
+    def info_add_timespent(self):
+        file_dates_clamped = self.file_dates[self.polyfit_in:self.polyfit_out]
+        frameFirst = file_dates_clamped[0]
+        frameLast = file_dates_clamped[len(file_dates_clamped)-1]
+        delta = frameLast - frameFirst
+        self.info_dic.update({"Time already spent rendering":str(delta)})
+
+    def info_add_meanframetime(self):
+        file_dates_clamped = self.file_dates_unix[self.polyfit_in:self.polyfit_out]
+        dates = np.array(file_dates_clamped)
+        diffs = np.diff(dates)
+        mean = int(np.mean(diffs))
+        self.info_dic.update({"Mean rendertime":str(mean)+"s"})
 
     def update_degs(self):
         """Update polyfit dictionary and plot if checkbox value changes"""
@@ -274,6 +307,9 @@ class GraphWindow(QtWidgets.QWidget):
         self.polyfit_in = val
         self.update_polyfits()
         self.update_plot()
+        self.info_add_timespent()
+        self.info_add_meanframetime()
+        self.update_info()
 
     def update_poly_out(self, val):
         """Update polyfits for new out point"""
@@ -281,6 +317,9 @@ class GraphWindow(QtWidgets.QWidget):
         self.polyfit_out = val
         self.update_polyfits()
         self.update_plot()
+        self.info_add_timespent()
+        self.info_add_meanframetime()
+        self.update_info()
 
     def update_poly_total(self, val):
         """Update polyfits for new total frame num"""
@@ -288,6 +327,7 @@ class GraphWindow(QtWidgets.QWidget):
         self.frames_total = val
         self.update_polyfits()
         self.update_plot()
+        self.update_info()
 
     def update_polyfits(self):
         """Update polyfits for new date range"""
