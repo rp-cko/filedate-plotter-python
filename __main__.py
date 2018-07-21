@@ -1,7 +1,7 @@
 import sys
 import os
 import warnings
-from datetime import datetime, time
+from datetime import datetime, timedelta
 
 from PyQt5 import QtWidgets, QtGui, QtCore
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
@@ -165,8 +165,7 @@ class GraphWindow(QtWidgets.QWidget):
 
             self.lab_dispFilepath.setText(str(filepaths[0]))
             self.info_dic.clear()
-            self.info_add_timespent()
-            self.info_add_meanframetime()
+            self.info_add_filebased()
 
             self.update_info()
             self.update_plot()
@@ -275,19 +274,27 @@ class GraphWindow(QtWidgets.QWidget):
         for label, val in self.info_dic.items():
             self.lab_infobox.insertPlainText(label+": "+val+"\n")
 
-    def info_add_timespent(self):
-        file_dates_clamped = self.file_dates[self.polyfit_in:self.polyfit_out]
-        frameFirst = file_dates_clamped[0]
-        frameLast = file_dates_clamped[len(file_dates_clamped)-1]
+    def info_add_filebased(self):
+        """Add info based on selected files"""
+
+        file_dates_clamped = self.file_dates_unix[self.polyfit_in:self.polyfit_out]
+
+        frameFirst = datetime.fromtimestamp(int(file_dates_clamped[0]))
+        frameLast = datetime.fromtimestamp(int(file_dates_clamped[len(file_dates_clamped)-1]))
         delta = frameLast - frameFirst
         self.info_dic.update({"Time already spent rendering":str(delta)})
 
-    def info_add_meanframetime(self):
-        file_dates_clamped = self.file_dates_unix[self.polyfit_in:self.polyfit_out]
         dates = np.array(file_dates_clamped)
         diffs = np.diff(dates)
-        mean = int(np.mean(diffs))
+        mean = timedelta(seconds=int(np.mean(diffs)))
         self.info_dic.update({"Mean rendertime":str(mean)+"s"})
+
+        slowest = timedelta(seconds=int(np.amax(diffs)))
+        self.info_dic.update({"Slowest frame":str(slowest)+"s"})
+
+        fastest = timedelta(seconds=int(np.amin(diffs)))
+        self.info_dic.update({"Fastest frame":str(fastest)+"s"})
+
 
     def update_degs(self):
         """Update polyfit dictionary and plot if checkbox value changes"""
@@ -307,8 +314,7 @@ class GraphWindow(QtWidgets.QWidget):
         self.polyfit_in = val
         self.update_polyfits()
         self.update_plot()
-        self.info_add_timespent()
-        self.info_add_meanframetime()
+        self.info_add_filebased()
         self.update_info()
 
     def update_poly_out(self, val):
@@ -317,8 +323,7 @@ class GraphWindow(QtWidgets.QWidget):
         self.polyfit_out = val
         self.update_polyfits()
         self.update_plot()
-        self.info_add_timespent()
-        self.info_add_meanframetime()
+        self.info_add_filebased()
         self.update_info()
 
     def update_poly_total(self, val):
