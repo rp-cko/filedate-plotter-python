@@ -19,12 +19,15 @@ class GraphWindow(QtWidgets.QWidget):
         self.file_dates_unix = []
         self.file_dates = []
         self.file_frames = []
+        self.got_files = False
         self.frames_total = 200
         self.polyfit_frames = []
-        self.polyfit_dates = {}
+        self.polyfit_dates_unix = {}
         self.polyfit_in = 0
         self.polyfit_out = 200
+        self.polyfit_mean = []
         self.info_dic = {}
+        self.info_poly = {}
         self.DEGREES = {'Deg.: 1':1,
                 'Deg.: 2':2,
                 'Deg.: 3':3,
@@ -157,7 +160,7 @@ class GraphWindow(QtWidgets.QWidget):
         if filepaths != None:
             self.calc_modtimes(filepaths)
 
-            self.polyfit_dates.clear()
+            self.polyfit_dates_unix.clear()
             for chkbx in self.deg_boxes: chkbx.setChecked(False)
             self.update_polyfits()
             self.polyfit_in = 0
@@ -169,6 +172,7 @@ class GraphWindow(QtWidgets.QWidget):
 
             self.update_info()
             self.update_plot()
+            self.got_files = True
         else:
             pass
 
@@ -227,12 +231,28 @@ class GraphWindow(QtWidgets.QWidget):
 
         #Compute dates from polyfit function
         polyfitTimesUnix = np.polyval(p1,self.polyfit_frames)
-        polyfitTimes = []
-        for timeU in polyfitTimesUnix:
-            polyfitTimes.append(datetime.fromtimestamp(timeU))
 
         #Safe to global var
-        self.polyfit_dates.update({deg: polyfitTimes})
+        self.polyfit_dates_unix.update({deg: polyfitTimesUnix})
+
+    def create_mean(self):
+        """Creates mean graph from all generated polyfits"""
+
+        self.polyfit_mean = []
+
+        if len(self.polyfit_dates_unix) == 0:
+            return
+
+        if len(self.polyfit_dates_unix) == 1:
+            return
+
+        datelistlist = []
+        for label, datelist in self.polyfit_dates_unix.items():
+            datelistlist.append(datelist)
+
+        xy = np.array(datelistlist)
+        means = np.mean(xy, axis=0)
+        self.polyfit_mean = means
 
     def update_plot(self):
         """Creates new axes containing selected info
@@ -246,10 +266,20 @@ class GraphWindow(QtWidgets.QWidget):
         ax.set(xlabel='Frame', ylabel='Creation Date', title='Render Progress')
 
         # Plots all available polyfit dates
-        if len(self.polyfit_dates) > 0:
-            for deg, timeList in self.polyfit_dates.items():
+        if len(self.polyfit_dates_unix) > 0:
+            for deg, timeList in self.polyfit_dates_unix.items():
                 if len(timeList) > 0 and len(timeList) == len(self.polyfit_frames):
-                    ax.plot(self.polyfit_frames,timeList, label="Deg. "+str(deg))
+                    polyfitTimes = []
+                    for timeU in timeList:
+                        polyfitTimes.append(datetime.fromtimestamp(timeU))
+                    ax.plot(self.polyfit_frames,polyfitTimes, label="Deg. "+str(deg))
+
+        #Plots mean polyfit curve
+        if len(self.polyfit_mean)>0 and len(self.polyfit_mean) == len(self.polyfit_frames):
+            meanTimes = []
+            for timeU in self.polyfit_mean:
+                meanTimes.append(datetime.fromtimestamp(timeU))
+            ax.plot(self.polyfit_frames, meanTimes, label="Mean")
 
         # Plots last modified dates of selected files
         if len(self.file_dates) > 0 and len(self.file_dates)==len(self.file_frames):
@@ -270,75 +300,118 @@ class GraphWindow(QtWidgets.QWidget):
         self.canv.draw()
 
     def update_info(self):
+        """Update contents of Infobox"""
+
         self.lab_infobox.clear()
+
+        self.lab_infobox.insertPlainText("File bases info:\n")
         for label, val in self.info_dic.items():
-            self.lab_infobox.insertPlainText(label+": "+val+"\n")
+            self.lab_infobox.insertPlainText(label+": "+str(val)+"\n")
+
+        if len(self.info_poly) > 0:
+            self.lab_infobox.insertPlainText("\nPolyfit bases info:\n")
+            for label, val in self.info_poly.items():
+                self.lab_infobox.insertPlainText(label+": "+str(val)+"\n")
 
     def info_add_filebased(self):
         """Add info based on selected files"""
 
         file_dates_clamped = self.file_dates_unix[self.polyfit_in:self.polyfit_out]
+        self.info_dic.clear()
 
         frameFirst = datetime.fromtimestamp(int(file_dates_clamped[0]))
         frameLast = datetime.fromtimestamp(int(file_dates_clamped[len(file_dates_clamped)-1]))
         delta = frameLast - frameFirst
-        self.info_dic.update({"Time already spent rendering":str(delta)})
+        self.info_dic.update({"Time already spent rendering":delta})
 
         dates = np.array(file_dates_clamped)
         diffs = np.diff(dates)
         mean = timedelta(seconds=int(np.mean(diffs)))
-        self.info_dic.update({"Mean rendertime":str(mean)+"s"})
+        self.info_dic.update({"Mean rendertime":mean})
 
         slowest = timedelta(seconds=int(np.amax(diffs)))
-        self.info_dic.update({"Slowest frame":str(slowest)+"s"})
+        self.info_dic.update({"Slowest frame":slowest})
 
         fastest = timedelta(seconds=int(np.amin(diffs)))
-        self.info_dic.update({"Fastest frame":str(fastest)+"s"})
+        self.info_dic.update({"Fastest frame":fastest})
 
+    def info_add_polybased(self):
+        """Add info based on mean or single polyfit"""
+        if len(self.polyfit_dates_unix) == 0:
+            return
+
+        dates = []
+        if len(self.polyfit_mean) == 0:
+            dates = next(iter(self.polyfit_dates_unix.values()))
+        else:
+            dates = self.polyfit_mean
+
+        self.info_poly.clear()
+
+        date_finished = datetime.fromtimestamp(dates[len(dates)-1])
+        self.info_poly.update({"Date finished":date_finished})
+
+        date_started = datetime.fromtimestamp(dates[0])
+        time_total = date_finished - date_started
+        self.info_poly.update({"Rendertime total":time_total})
+
+        time_spent = self.info_dic.get("Time already spent rendering", None)
+        if time_spent != None:
+            time_remaining = time_total - time_spent
+            self.info_poly.update({"Time remaining":time_remaining})
 
     def update_degs(self):
         """Update polyfit dictionary and plot if checkbox value changes"""
 
         chkbx = self.sender()
-        if isinstance(chkbx, QtWidgets.QCheckBox):
+        if isinstance(chkbx, QtWidgets.QCheckBox) and self.got_files:
             deg = self.DEGREES.get(chkbx.text())
             if chkbx.isChecked():
                 self.create_polyfit(deg)
             else:
-                self.polyfit_dates.pop(deg, None)
+                self.polyfit_dates_unix.pop(deg, None)
+            self.create_mean()
+            self.info_add_polybased()
             self.update_plot()
+            self.update_info()
 
     def update_poly_in(self, val):
         """Update polyfits for new in point"""
 
         self.polyfit_in = val
-        self.update_polyfits()
-        self.update_plot()
-        self.info_add_filebased()
-        self.update_info()
+        if self.got_files:
+            self.update_polyfits()
+            self.update_plot()
+            self.info_add_filebased()
+            self.info_add_polybased()
+            self.update_info()
 
     def update_poly_out(self, val):
         """Update polyfits for new out point"""
 
         self.polyfit_out = val
-        self.update_polyfits()
-        self.update_plot()
-        self.info_add_filebased()
-        self.update_info()
+        if self.got_files:
+            self.update_polyfits()
+            self.update_plot()
+            self.info_add_filebased()
+            self.info_add_polybased()
+            self.update_info()
 
     def update_poly_total(self, val):
         """Update polyfits for new total frame num"""
 
         self.frames_total = val
-        self.update_polyfits()
-        self.update_plot()
-        self.update_info()
+        if self.got_files:
+            self.update_polyfits()
+            self.info_add_polybased()
+            self.update_plot()
+            self.update_info()
 
     def update_polyfits(self):
         """Update polyfits for new date range"""
 
         # Clear all previous polyfit data
-        self.polyfit_dates.clear()
+        self.polyfit_dates_unix.clear()
 
         # Update polyfit frame range
         frames = range(self.frames_total)
@@ -348,6 +421,8 @@ class GraphWindow(QtWidgets.QWidget):
         for chkbx in self.deg_boxes:
             deg = self.DEGREES.get(chkbx.text())
             if chkbx.isChecked(): self.create_polyfit(deg)
+
+        self.create_mean()
 
     def center_window(self):
         """Move window to screen center"""
@@ -366,3 +441,5 @@ def main():
 
 if __name__ == '__main__' :
     main()
+
+#        import pdb;pdb.set_trace()
